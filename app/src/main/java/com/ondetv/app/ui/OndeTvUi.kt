@@ -1,7 +1,10 @@
 package com.ondetv.app.ui
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,12 +22,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -41,17 +51,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.ondetv.app.data.CategoryEntity
@@ -66,6 +84,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private val OndeBg = Color(0xFF07110B)
 private val OndePanel = Color(0xFF101B14)
@@ -298,9 +317,9 @@ private fun LibraryScreen(vm: MainViewModel, repo: IptvRepository, service: Serv
                 Modifier.fillMaxWidth().padding(10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                SectionButton("TV LIVE", kind == "live", Modifier.weight(1f)) { vm.selectKind("live") }
-                SectionButton("FILMS", kind == "vod", Modifier.weight(1f)) { vm.selectKind("vod") }
-                SectionButton("SÉRIES", kind == "series", Modifier.weight(1f)) { vm.selectKind("series") }
+                SectionButton("TV LIVE", Icons.Filled.LiveTv, kind == "live", Modifier.weight(1f)) { vm.selectKind("live") }
+                SectionButton("FILMS", Icons.Filled.Movie, kind == "vod", Modifier.weight(1f)) { vm.selectKind("vod") }
+                SectionButton("SÉRIES", Icons.Filled.VideoLibrary, kind == "series", Modifier.weight(1f)) { vm.selectKind("series") }
             }
 
             if (busy) {
@@ -374,16 +393,21 @@ private fun LibraryScreen(vm: MainViewModel, repo: IptvRepository, service: Serv
 }
 
 @Composable
-private fun SectionButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun SectionButton(label: String, icon: ImageVector, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.height(78.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (selected) OndeGreen else OndePanelSoft,
             contentColor = if (selected) OndeBg else OndeText
         )
-    ) { Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icon, contentDescription = label)
+            Text(label, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        }
+    }
 }
 
 @Composable
@@ -403,23 +427,186 @@ private fun MediaRow(item: MediaEntity, onClick: () -> Unit) {
     }
 }
 
+private data class TrackChoice(
+    val groupIndex: Int,
+    val trackIndex: Int,
+    val type: Int,
+    val language: String?,
+    val label: String,
+    val selected: Boolean
+)
+
+private fun buildTrackChoices(tracks: Tracks, type: Int): List<TrackChoice> {
+    val result = mutableListOf<TrackChoice>()
+    tracks.groups.forEachIndexed { groupIndex, group ->
+        if (group.type == type) {
+            for (trackIndex in 0 until group.length) {
+                if (!group.isTrackSupported(trackIndex)) continue
+                val format = group.getTrackFormat(trackIndex)
+                val language = format.language?.takeIf { it.isNotBlank() }
+                val languageLabel = language?.let {
+                    Locale.forLanguageTag(it).displayLanguage.takeIf { text -> text.isNotBlank() }
+                }
+                val label = format.label?.takeIf { it.isNotBlank() }
+                    ?: languageLabel
+                    ?: if (type == C.TRACK_TYPE_AUDIO) "Audio ${result.size + 1}" else "Sous-titre ${result.size + 1}"
+                result += TrackChoice(groupIndex, trackIndex, type, language, label, group.isTrackSelected(trackIndex))
+            }
+        }
+    }
+    return result
+}
+
+private fun selectTrack(player: ExoPlayer, choice: TrackChoice) {
+    val group = player.currentTracks.groups.getOrNull(choice.groupIndex) ?: return
+    player.trackSelectionParameters = player.trackSelectionParameters
+        .buildUpon()
+        .setTrackTypeDisabled(choice.type, false)
+        .clearOverridesOfType(choice.type)
+        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, choice.trackIndex))
+        .build()
+}
+
 @Composable
 private fun PlayerScreen(repo: IptvRepository, service: ServiceEntity, item: MediaEntity, onBack: () -> Unit) {
     val context = LocalContext.current
+    val activity = context as? Activity
+    val prefs = remember { context.getSharedPreferences("onde_player_preferences", Context.MODE_PRIVATE) }
     val url = remember(item) { repo.streamUrl(service, item) }
+
     val player = remember(url) {
         ExoPlayer.Builder(context).build().apply {
+            val preferredAudio = prefs.getString("preferred_audio_language", null)
+            val preferredSubtitle = prefs.getString("preferred_subtitle_language", null)
+            val subtitlesEnabled = prefs.getBoolean("subtitles_enabled", true)
+            trackSelectionParameters = trackSelectionParameters.buildUpon()
+                .apply {
+                    preferredAudio?.let { setPreferredAudioLanguage(it) }
+                    preferredSubtitle?.let { setPreferredTextLanguage(it) }
+                    setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !subtitlesEnabled)
+                }
+                .build()
             setMediaItem(MediaItem.fromUri(url))
             prepare()
             playWhenReady = true
         }
     }
-    DisposableEffect(player) { onDispose { player.release() } }
 
-    Column(Modifier.fillMaxSize().background(Color.Black)) {
-        Row(Modifier.fillMaxWidth().background(OndePanel), verticalAlignment = Alignment.CenterVertically) {
+    var audioTracks by remember { mutableStateOf<List<TrackChoice>>(emptyList()) }
+    var subtitleTracks by remember { mutableStateOf<List<TrackChoice>>(emptyList()) }
+    var audioMenu by remember { mutableStateOf(false) }
+    var subtitleMenu by remember { mutableStateOf(false) }
+
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onTracksChanged(tracks: Tracks) {
+                audioTracks = buildTrackChoices(tracks, C.TRACK_TYPE_AUDIO)
+                subtitleTracks = buildTrackChoices(tracks, C.TRACK_TYPE_TEXT)
+            }
+        }
+        player.addListener(listener)
+        audioTracks = buildTrackChoices(player.currentTracks, C.TRACK_TYPE_AUDIO)
+        subtitleTracks = buildTrackChoices(player.currentTracks, C.TRACK_TYPE_TEXT)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
+    }
+
+    DisposableEffect(activity) {
+        if (activity == null) return@DisposableEffect onDispose { }
+        val oldOrientation = activity.requestedOrientation
+        val window = activity.window
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+
+        onDispose {
+            activity.requestedOrientation = oldOrientation
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        AndroidView(
+            factory = {
+                PlayerView(it).apply {
+                    this.player = player
+                    useController = true
+                    controllerAutoShow = true
+                    keepScreenOn = true
+                }
+            },
+            update = { it.player = player },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        Row(
+            Modifier.fillMaxWidth().background(Color(0xAA07110B)).padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             TextButton(onClick = onBack) { Text("← Retour", color = OndeGreen) }
-            Text(item.name, color = OndeText, modifier = Modifier.weight(1f).padding(12.dp), maxLines = 1)
+            Text(item.name, color = OndeText, modifier = Modifier.weight(1f).padding(horizontal = 8.dp), maxLines = 1)
+
+            Box {
+                TextButton(onClick = { audioMenu = true }) {
+                    Text("Audio", color = OndeGreen)
+                }
+                DropdownMenu(expanded = audioMenu, onDismissRequest = { audioMenu = false }) {
+                    if (audioTracks.isEmpty()) {
+                        DropdownMenuItem(text = { Text("Aucune autre piste audio") }, onClick = { audioMenu = false })
+                    } else {
+                        audioTracks.forEach { choice ->
+                            DropdownMenuItem(
+                                text = { Text((if (choice.selected) "✓ " else "") + choice.label) },
+                                onClick = {
+                                    selectTrack(player, choice)
+                                    choice.language?.let {
+                                        prefs.edit().putString("preferred_audio_language", it).apply()
+                                    }
+                                    audioMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Box {
+                TextButton(onClick = { subtitleMenu = true }) {
+                    Text("CC", color = OndeGreen)
+                }
+                DropdownMenu(expanded = subtitleMenu, onDismissRequest = { subtitleMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Désactivés") },
+                        onClick = {
+                            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                                .build()
+                            prefs.edit().putBoolean("subtitles_enabled", false).apply()
+                            subtitleMenu = false
+                        }
+                    )
+                    subtitleTracks.forEach { choice ->
+                        DropdownMenuItem(
+                            text = { Text((if (choice.selected) "✓ " else "") + choice.label) },
+                            onClick = {
+                                selectTrack(player, choice)
+                                prefs.edit().putBoolean("subtitles_enabled", true).apply()
+                                choice.language?.let {
+                                    prefs.edit().putString("preferred_subtitle_language", it).apply()
+                                }
+                                subtitleMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+
             TextButton(onClick = {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 try {
@@ -429,9 +616,5 @@ private fun PlayerScreen(repo: IptvRepository, service: ServiceEntity, item: Med
                 }
             }) { Text("VLC", color = OndeGreen) }
         }
-        AndroidView(
-            factory = { PlayerView(it).apply { this.player = player; useController = true } },
-            modifier = Modifier.weight(1f).fillMaxWidth()
-        )
     }
 }
