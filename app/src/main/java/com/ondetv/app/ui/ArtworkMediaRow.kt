@@ -44,8 +44,7 @@ private val ArtworkMuted = Color(0xFFAEB8AF)
 fun ArtworkMediaRow(item: MediaEntity, onClick: () -> Unit) {
     val isLive = item.kind == "live"
     val isMovie = item.kind == "vod"
-    val artworkUrl = listOf(item.logo, item.streamIcon)
-        .firstOrNull { !it.isNullOrBlank() }
+    val artworkUrl = item.logo?.takeIf { it.isNotBlank() }
 
     Card(
         modifier = Modifier
@@ -108,16 +107,6 @@ fun ArtworkMediaRow(item: MediaEntity, onClick: () -> Unit) {
                 item.plot?.takeIf { it.isNotBlank() }?.let {
                     Spacer(Modifier.height(5.dp))
                     Text(it, color = ArtworkMuted, maxLines = 3, fontSize = 13.sp)
-                }
-                if (!isLive) {
-                    val meta = listOfNotNull(
-                        item.releaseDate?.takeIf { it.isNotBlank() },
-                        item.rating?.takeIf { it.isNotBlank() }?.let { "★ $it" }
-                    ).joinToString("  •  ")
-                    if (meta.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(meta, color = ArtworkGreen, fontSize = 12.sp)
-                    }
                 }
             }
         }
