@@ -25,6 +25,14 @@ private interface XtreamApi {
         @Query("password") password: String,
         @Query("action") action: String
     ): JsonArray
+
+    @GET("player_api.php")
+    suspend fun seriesInfo(
+        @Query("username") username: String,
+        @Query("password") password: String,
+        @Query("action") action: String = "get_series_info",
+        @Query("series_id") seriesId: String
+    ): JsonObject
 }
 
 class IptvRepository(private val db: AppDatabase) {
@@ -64,6 +72,40 @@ class IptvRepository(private val db: AppDatabase) {
         val service = dao.activeService()?.takeIf { it.id == serviceId }
             ?: error("Service IPTV introuvable")
         if (service.type == "xtream") refreshXtream(service) else refreshM3u(service)
+    }
+
+    suspend fun getSeriesEpisodes(service: ServiceEntity, seriesId: String): List<MediaEntity> {
+        if (service.type != "xtream") return emptyList()
+        val root = api(service.baseUrl).seriesInfo(service.username, service.password, seriesId = seriesId)
+        val episodes = root.getAsJsonObject("episodes") ?: return emptyList()
+        val result = mutableListOf<MediaEntity>()
+        episodes.entrySet()
+            .sortedBy { it.key.toIntOrNull() ?: Int.MAX_VALUE }
+            .forEach { (seasonKey, value) ->
+                if (!value.isJsonArray) return@forEach
+                value.asJsonArray.forEach { element ->
+                    if (!element.isJsonObject) return@forEach
+                    val o = element.asJsonObject
+                    val id = o.string("id")
+                    if (id.isBlank()) return@forEach
+                    val episodeNum = o.string("episode_num")
+                    val title = o.string("title").ifBlank {
+                        if (episodeNum.isNotBlank()) "Épisode $episodeNum" else "Épisode"
+                    }
+                    val info = o.getAsJsonObject("info")
+                    result += MediaEntity(
+                        serviceId = service.id,
+                        kind = "series",
+                        streamId = id,
+                        categoryId = seriesId,
+                        name = "S$seasonKey · $title",
+                        logo = info?.string("movie_image")?.ifBlank { null },
+                        containerExtension = o.string("container_extension").ifBlank { "mp4" },
+                        plot = info?.string("plot")?.ifBlank { null }
+                    )
+                }
+            }
+        return result
     }
 
     private suspend fun refreshXtream(service: ServiceEntity) {
