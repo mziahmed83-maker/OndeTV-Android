@@ -25,20 +25,6 @@ jobs:
           rm -f app/src/main/res/drawable/ondetv_icon.jpg.b64
           test -s app/src/main/res/drawable/ondetv_icon.jpg
 
-      - name: Enable artwork rows
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('app/src/main/java/com/ondetv/app/ui/OndeTvUi.kt')
-          text = path.read_text()
-          text = text.replace('MediaRow(', 'ArtworkMediaRow(')
-          text = text.replace('private fun ArtworkMediaRow(', 'private fun LegacyMediaRow(')
-          path.write_text(text)
-          PY
-          grep -q 'ArtworkMediaRow(episode)' app/src/main/java/com/ondetv/app/ui/OndeTvUi.kt
-          grep -q 'ArtworkMediaRow(item)' app/src/main/java/com/ondetv/app/ui/OndeTvUi.kt
-
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -69,6 +55,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: OndeTV-artwork-v2-apk
+          name: OndeTV-navigation-settings-cache-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
