@@ -6,21 +6,31 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,10 +41,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -55,6 +69,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+private val OndeBg = Color(0xFF07110B)
+private val OndePanel = Color(0xFF101B14)
+private val OndePanelSoft = Color(0xFF162319)
+private val OndeGreen = Color(0xFF6CFF59)
+private val OndeGreenDark = Color(0xFF32D74B)
+private val OndeText = Color(0xFFF3F6F3)
+private val OndeMuted = Color(0xFFAEB8AF)
+private val OndeBorder = Color(0xFF33473A)
 
 private class MainViewModel(private val repo: IptvRepository) : ViewModel() {
     val services = repo.dao.services().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -132,29 +155,188 @@ private fun AddServiceScreen(vm: MainViewModel) {
     var m3u by remember { mutableStateOf("") }
     val busy by vm.busy.collectAsState()
     val error by vm.error.collectAsState()
+    val scroll = rememberScrollState()
 
-    Column(
-        Modifier.fillMaxSize().padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text("Onde TV — Ajouter un service", style = MaterialTheme.typography.headlineMedium)
-        Text("Utilisez uniquement un service IPTV auquel vous êtes autorisé à accéder.")
-        OutlinedTextField(name, { name = it }, label = { Text("Nom du service") })
-        OutlinedTextField(base, { base = it }, label = { Text("URL serveur Xtream") })
-        OutlinedTextField(user, { user = it }, label = { Text("Identifiant") })
-        OutlinedTextField(pass, { pass = it }, label = { Text("Mot de passe") })
-        Button(
-            onClick = { vm.addXtream(name, base, user, pass) },
-            enabled = !busy && name.isNotBlank() && base.isNotBlank() && user.isNotBlank()
-        ) { Text("Ajouter Xtream Codes") }
-        HorizontalDivider()
-        OutlinedTextField(m3u, { m3u = it }, label = { Text("URL M3U / M3U8") })
-        Button(
-            onClick = { vm.addM3u(name, m3u) },
-            enabled = !busy && name.isNotBlank() && m3u.isNotBlank()
-        ) { Text("Ajouter M3U") }
-        if (busy) CircularProgressIndicator()
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = OndeText,
+        unfocusedTextColor = OndeText,
+        focusedBorderColor = OndeGreen,
+        unfocusedBorderColor = OndeBorder,
+        focusedLabelColor = OndeGreen,
+        unfocusedLabelColor = OndeMuted,
+        cursorColor = OndeGreen,
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent
+    )
+
+    Surface(color = OndeBg, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scroll)
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(OndeGreen, RoundedCornerShape(18.dp))
+                        .padding(horizontal = 18.dp, vertical = 10.dp)
+                ) {
+                    Text("ONDE TV", color = Color(0xFF07110B), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                }
+
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Connectez votre service IPTV",
+                    color = OndeText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Ajoutez vos identifiants Xtream Codes ou votre lien M3U.",
+                    color = OndeMuted,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(22.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = OndePanel),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("Xtream Codes", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                        Text("Serveur + identifiant + mot de passe", color = OndeMuted, fontSize = 13.sp)
+
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Nom du service") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = fieldColors,
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = base,
+                            onValueChange = { base = it },
+                            label = { Text("URL du serveur") },
+                            placeholder = { Text("http://serveur:port", color = OndeMuted) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = fieldColors,
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = user,
+                            onValueChange = { user = it },
+                            label = { Text("Identifiant") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = fieldColors,
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = pass,
+                            onValueChange = { pass = it },
+                            label = { Text("Mot de passe") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = fieldColors,
+                            visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true
+                        )
+
+                        Button(
+                            onClick = { vm.addXtream(name, base, user, pass) },
+                            enabled = !busy && name.isNotBlank() && base.isNotBlank() && user.isNotBlank() && pass.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().height(54.dp),
+                            shape = RoundedCornerShape(15.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = OndeGreen,
+                                contentColor = Color(0xFF07110B),
+                                disabledContainerColor = Color(0xFF263329),
+                                disabledContentColor = Color(0xFF718073)
+                            )
+                        ) {
+                            Text("SE CONNECTER", fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = OndePanelSoft)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("Playlist M3U", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                        Text("Ajoutez directement une URL M3U ou M3U8.", color = OndeMuted, fontSize = 13.sp)
+                        OutlinedTextField(
+                            value = m3u,
+                            onValueChange = { m3u = it },
+                            label = { Text("URL M3U / M3U8") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = fieldColors,
+                            singleLine = true
+                        )
+                        OutlinedButton(
+                            onClick = { vm.addM3u(name.ifBlank { "Ma playlist" }, m3u) },
+                            enabled = !busy && m3u.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(15.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = OndeGreen)
+                        ) {
+                            Text("AJOUTER LA PLAYLIST", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                if (busy) {
+                    Spacer(Modifier.height(20.dp))
+                    CircularProgressIndicator(color = OndeGreen)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Connexion en cours…", color = OndeMuted)
+                }
+
+                error?.let {
+                    Spacer(Modifier.height(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF3A1717)),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = it,
+                            color = Color(0xFFFFB4AB),
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+                HorizontalDivider(color = OndeBorder)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Onde TV lit uniquement les services et contenus auxquels vous êtes autorisé à accéder.",
+                    color = OndeMuted,
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.height(24.dp))
+            }
+        }
     }
 }
 
