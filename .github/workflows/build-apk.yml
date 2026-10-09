@@ -20,8 +20,9 @@ jobs:
       - name: Prepare OndeTV launcher icon
         shell: bash
         run: |
-          base64 --decode app/src/main/res/drawable/ondetv_icon.jpg.b64 > app/src/main/res/drawable/ondetv_icon.jpg
-          rm app/src/main/res/drawable/ondetv_icon.jpg.b64
+          mkdir -p app/src/main/res/drawable
+          base64 --decode app/src/main/ondetv_icon_256.b64 > app/src/main/res/drawable/ondetv_icon.jpg
+          rm -f app/src/main/res/drawable/ondetv_icon.jpg.b64
           test -s app/src/main/res/drawable/ondetv_icon.jpg
 
       - name: Set up JDK 17
