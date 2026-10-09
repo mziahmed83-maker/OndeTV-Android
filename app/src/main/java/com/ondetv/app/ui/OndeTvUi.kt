@@ -10,24 +10,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -74,7 +71,6 @@ private val OndeBg = Color(0xFF07110B)
 private val OndePanel = Color(0xFF101B14)
 private val OndePanelSoft = Color(0xFF162319)
 private val OndeGreen = Color(0xFF6CFF59)
-private val OndeGreenDark = Color(0xFF32D74B)
 private val OndeText = Color(0xFFF3F6F3)
 private val OndeMuted = Color(0xFFAEB8AF)
 private val OndeBorder = Color(0xFF33473A)
@@ -86,6 +82,7 @@ private class MainViewModel(private val repo: IptvRepository) : ViewModel() {
 
     private val kind = MutableStateFlow("live")
     private val selectedCategory = MutableStateFlow<String?>(null)
+    private val selectedSeries = MutableStateFlow<String?>(null)
 
     val categories = combine(active, kind) { service, k -> service to k }
         .flatMapLatest { (service, k) ->
@@ -101,15 +98,52 @@ private class MainViewModel(private val repo: IptvRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val currentKind = kind
+    val currentCategory = selectedCategory
+    val currentSeries = selectedSeries
+    val seriesEpisodes = MutableStateFlow<List<MediaEntity>>(emptyList())
     val busy = MutableStateFlow(false)
     val error = MutableStateFlow<String?>(null)
 
     fun selectKind(value: String) {
         kind.value = value
         selectedCategory.value = null
+        selectedSeries.value = null
+        seriesEpisodes.value = emptyList()
+        error.value = null
     }
 
-    fun selectCategory(value: String) { selectedCategory.value = value }
+    fun selectCategory(value: String) {
+        selectedCategory.value = value
+        selectedSeries.value = null
+        seriesEpisodes.value = emptyList()
+        error.value = null
+    }
+
+    fun backToCategories() {
+        selectedCategory.value = null
+        selectedSeries.value = null
+        seriesEpisodes.value = emptyList()
+        error.value = null
+    }
+
+    fun backToSeriesList() {
+        selectedSeries.value = null
+        seriesEpisodes.value = emptyList()
+        error.value = null
+    }
+
+    fun openSeries(service: ServiceEntity, item: MediaEntity) = viewModelScope.launch {
+        busy.value = true
+        error.value = null
+        selectedSeries.value = item.name
+        runCatching { repo.getSeriesEpisodes(service, item.streamId) }
+            .onSuccess { episodes ->
+                seriesEpisodes.value = episodes
+                if (episodes.isEmpty()) error.value = "Aucun épisode trouvé pour cette série."
+            }
+            .onFailure { error.value = it.message ?: "Impossible de charger les épisodes" }
+        busy.value = false
+    }
 
     fun addXtream(name: String, base: String, user: String, pass: String) = viewModelScope.launch {
         busy.value = true
@@ -170,171 +204,64 @@ private fun AddServiceScreen(vm: MainViewModel) {
     )
 
     Surface(color = OndeBg, modifier = Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize()) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scroll)
-                    .padding(horizontal = 20.dp, vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        Column(
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier.background(OndeGreen, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .background(OndeGreen, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 18.dp, vertical = 10.dp)
-                ) {
-                    Text("ONDE TV", color = Color(0xFF07110B), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                Text("ONDE TV", color = OndeBg, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("Connectez votre service IPTV", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Spacer(Modifier.height(6.dp))
+            Text("Ajoutez vos identifiants Xtream Codes ou votre lien M3U.", color = OndeMuted, fontSize = 14.sp)
+            Spacer(Modifier.height(22.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = OndePanel)
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Xtream Codes", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                    OutlinedTextField(name, { name = it }, label = { Text("Nom du service") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, singleLine = true)
+                    OutlinedTextField(base, { base = it }, label = { Text("URL du serveur") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, singleLine = true)
+                    OutlinedTextField(user, { user = it }, label = { Text("Identifiant") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, singleLine = true)
+                    OutlinedTextField(pass, { pass = it }, label = { Text("Mot de passe") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    Button(
+                        onClick = { vm.addXtream(name, base, user, pass) },
+                        enabled = !busy && name.isNotBlank() && base.isNotBlank() && user.isNotBlank() && pass.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(15.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = OndeGreen, contentColor = OndeBg)
+                    ) { Text("SE CONNECTER", fontWeight = FontWeight.ExtraBold) }
                 }
+            }
 
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    "Connectez votre service IPTV",
-                    color = OndeText,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Ajoutez vos identifiants Xtream Codes ou votre lien M3U.",
-                    color = OndeMuted,
-                    fontSize = 14.sp
-                )
-                Spacer(Modifier.height(22.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = OndePanel),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("Xtream Codes", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                        Text("Serveur + identifiant + mot de passe", color = OndeMuted, fontSize = 13.sp)
-
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = { Text("Nom du service") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = fieldColors,
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = base,
-                            onValueChange = { base = it },
-                            label = { Text("URL du serveur") },
-                            placeholder = { Text("http://serveur:port", color = OndeMuted) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = fieldColors,
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = user,
-                            onValueChange = { user = it },
-                            label = { Text("Identifiant") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = fieldColors,
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = pass,
-                            onValueChange = { pass = it },
-                            label = { Text("Mot de passe") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = fieldColors,
-                            visualTransformation = PasswordVisualTransformation(),
-                            singleLine = true
-                        )
-
-                        Button(
-                            onClick = { vm.addXtream(name, base, user, pass) },
-                            enabled = !busy && name.isNotBlank() && base.isNotBlank() && user.isNotBlank() && pass.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth().height(54.dp),
-                            shape = RoundedCornerShape(15.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = OndeGreen,
-                                contentColor = Color(0xFF07110B),
-                                disabledContainerColor = Color(0xFF263329),
-                                disabledContentColor = Color(0xFF718073)
-                            )
-                        ) {
-                            Text("SE CONNECTER", fontWeight = FontWeight.ExtraBold)
-                        }
-                    }
+            Spacer(Modifier.height(16.dp))
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = OndePanelSoft)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Playlist M3U", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                    OutlinedTextField(m3u, { m3u = it }, label = { Text("URL M3U / M3U8") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, singleLine = true)
+                    OutlinedButton(
+                        onClick = { vm.addM3u(name.ifBlank { "Ma playlist" }, m3u) },
+                        enabled = !busy && m3u.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(15.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = OndeGreen)
+                    ) { Text("AJOUTER LA PLAYLIST", fontWeight = FontWeight.Bold) }
                 }
+            }
 
+            if (busy) {
+                Spacer(Modifier.height(20.dp))
+                CircularProgressIndicator(color = OndeGreen)
+            }
+            error?.let {
                 Spacer(Modifier.height(16.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = OndePanelSoft)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("Playlist M3U", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                        Text("Ajoutez directement une URL M3U ou M3U8.", color = OndeMuted, fontSize = 13.sp)
-                        OutlinedTextField(
-                            value = m3u,
-                            onValueChange = { m3u = it },
-                            label = { Text("URL M3U / M3U8") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = fieldColors,
-                            singleLine = true
-                        )
-                        OutlinedButton(
-                            onClick = { vm.addM3u(name.ifBlank { "Ma playlist" }, m3u) },
-                            enabled = !busy && m3u.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(15.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = OndeGreen)
-                        ) {
-                            Text("AJOUTER LA PLAYLIST", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                if (busy) {
-                    Spacer(Modifier.height(20.dp))
-                    CircularProgressIndicator(color = OndeGreen)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Connexion en cours…", color = OndeMuted)
-                }
-
-                error?.let {
-                    Spacer(Modifier.height(16.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF3A1717)),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = it,
-                            color = Color(0xFFFFB4AB),
-                            modifier = Modifier.padding(14.dp)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-                HorizontalDivider(color = OndeBorder)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Onde TV lit uniquement les services et contenus auxquels vous êtes autorisé à accéder.",
-                    color = OndeMuted,
-                    fontSize = 12.sp
-                )
-                Spacer(Modifier.height(24.dp))
+                Text(it, color = Color(0xFFFFB4AB))
             }
         }
     }
@@ -344,7 +271,10 @@ private fun AddServiceScreen(vm: MainViewModel) {
 private fun LibraryScreen(vm: MainViewModel, repo: IptvRepository, service: ServiceEntity) {
     val kind by vm.currentKind.collectAsState()
     val categories by vm.categories.collectAsState()
+    val selectedCategory by vm.currentCategory.collectAsState()
+    val selectedSeries by vm.currentSeries.collectAsState()
     val media by vm.media.collectAsState()
+    val episodes by vm.seriesEpisodes.collectAsState()
     val busy by vm.busy.collectAsState()
     val error by vm.error.collectAsState()
     var playing by remember { mutableStateOf<MediaEntity?>(null) }
@@ -354,46 +284,120 @@ private fun LibraryScreen(vm: MainViewModel, repo: IptvRepository, service: Serv
         return
     }
 
-    Row(Modifier.fillMaxSize().background(Color(0xFF0D1117))) {
-        Column(
-            Modifier.width(210.dp).fillMaxHeight().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text("Onde TV", style = MaterialTheme.typography.headlineSmall)
-            Button(onClick = { vm.selectKind("live") }, modifier = Modifier.fillMaxWidth()) { Text("TV LIVE") }
-            Button(onClick = { vm.selectKind("vod") }, modifier = Modifier.fillMaxWidth()) { Text("FILMS") }
-            Button(onClick = { vm.selectKind("series") }, modifier = Modifier.fillMaxWidth()) { Text("SÉRIES") }
-            OutlinedButton(onClick = vm::refresh, modifier = Modifier.fillMaxWidth()) { Text("Actualiser") }
-            if (busy) CircularProgressIndicator()
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-
-        LazyColumn(Modifier.width(300.dp).fillMaxHeight().padding(8.dp)) {
-            item { Text("Bouquets / catégories", style = MaterialTheme.typography.titleMedium) }
-            items(categories, key = CategoryEntity::categoryId) { category ->
-                Surface(
-                    Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { vm.selectCategory(category.categoryId) },
-                    tonalElevation = 2.dp
-                ) { Text(category.name, Modifier.padding(12.dp)) }
+    Surface(color = OndeBg, modifier = Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().background(OndePanel).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Onde TV", color = OndeText, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                TextButton(onClick = vm::refresh) { Text("Actualiser", color = OndeGreen) }
             }
-        }
 
-        LazyColumn(Modifier.weight(1f).fillMaxHeight().padding(8.dp)) {
-            item {
-                val title = when (kind) { "vod" -> "Films"; "series" -> "Séries"; else -> "Chaînes" }
-                Text("$title — ${media.size}", style = MaterialTheme.typography.titleMedium)
+            Row(
+                Modifier.fillMaxWidth().padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SectionButton("TV LIVE", kind == "live", Modifier.weight(1f)) { vm.selectKind("live") }
+                SectionButton("FILMS", kind == "vod", Modifier.weight(1f)) { vm.selectKind("vod") }
+                SectionButton("SÉRIES", kind == "series", Modifier.weight(1f)) { vm.selectKind("series") }
             }
-            items(media, key = MediaEntity::streamId) { item ->
-                Surface(
-                    Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable {
-                        if (kind != "series") playing = item
-                    }, tonalElevation = 1.dp
-                ) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(item.name)
-                        item.plot?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2, style = MaterialTheme.typography.bodySmall) }
+
+            if (busy) {
+                Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.Center) {
+                    CircularProgressIndicator(color = OndeGreen)
+                }
+            }
+
+            error?.let {
+                Text(it, color = Color(0xFFFFB4AB), modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+            }
+
+            when {
+                selectedSeries != null -> {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = vm::backToSeriesList) { Text("← Séries", color = OndeGreen) }
+                        Text(selectedSeries!!, color = OndeText, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
+                        items(episodes, key = MediaEntity::streamId) { episode ->
+                            MediaRow(episode) { playing = episode }
+                        }
                     }
                 }
+
+                selectedCategory == null -> {
+                    Text(
+                        when (kind) {
+                            "vod" -> "Catégories de films"
+                            "series" -> "Catégories de séries"
+                            else -> "Bouquets TV"
+                        },
+                        color = OndeText,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
+                        items(categories, key = CategoryEntity::categoryId) { category ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable { vm.selectCategory(category.categoryId) },
+                                colors = CardDefaults.cardColors(containerColor = OndePanel),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(category.name, color = OndeText, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                                    Text("›", color = OndeGreen, fontSize = 26.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                else -> {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = vm::backToCategories) { Text("← Bouquets", color = OndeGreen) }
+                        val title = when (kind) { "vod" -> "Films"; "series" -> "Séries"; else -> "Chaînes" }
+                        Text("$title (${media.size})", color = OndeText, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
+                        items(media, key = MediaEntity::streamId) { item ->
+                            MediaRow(item) {
+                                if (kind == "series") vm.openSeries(service, item) else playing = item
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) OndeGreen else OndePanelSoft,
+            contentColor = if (selected) OndeBg else OndeText
+        )
+    ) { Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+}
+
+@Composable
+private fun MediaRow(item: MediaEntity, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = OndePanel),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(item.name, color = OndeText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            item.plot?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, color = OndeMuted, maxLines = 2, fontSize = 13.sp)
             }
         }
     }
@@ -412,10 +416,10 @@ private fun PlayerScreen(repo: IptvRepository, service: ServiceEntity, item: Med
     }
     DisposableEffect(player) { onDispose { player.release() } }
 
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth()) {
-            TextButton(onClick = onBack) { Text("← Retour") }
-            Text(item.name, Modifier.weight(1f).padding(12.dp))
+    Column(Modifier.fillMaxSize().background(Color.Black)) {
+        Row(Modifier.fillMaxWidth().background(OndePanel), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("← Retour", color = OndeGreen) }
+            Text(item.name, color = OndeText, modifier = Modifier.weight(1f).padding(12.dp), maxLines = 1)
             TextButton(onClick = {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 try {
@@ -423,7 +427,7 @@ private fun PlayerScreen(repo: IptvRepository, service: ServiceEntity, item: Med
                 } catch (_: ActivityNotFoundException) {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
-            }) { Text("VLC / externe") }
+            }) { Text("VLC", color = OndeGreen) }
         }
         AndroidView(
             factory = { PlayerView(it).apply { this.player = player; useController = true } },
