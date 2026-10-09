@@ -8,7 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import com.ondetv.app.data.AppDatabase
 import com.ondetv.app.data.IptvRepository
-import com.ondetv.app.ui.OndeTvRoot
+import com.ondetv.app.ui.OndeTvRootEnhanced
 
 class OndeTvApp : Application() {
     lateinit var repository: IptvRepository
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                OndeTvRoot((application as OndeTvApp).repository)
+                OndeTvRootEnhanced((application as OndeTvApp).repository)
             }
         }
     }
