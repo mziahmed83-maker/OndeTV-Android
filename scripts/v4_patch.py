@@ -128,6 +128,13 @@ player_layout = r'''    val resizeMode = when (imageMode) {
         "4_3" -> 4f / 3f
         else -> 0f
     }
+    val currentFormatLabel = when (imageMode) {
+        "fit" -> "Original"
+        "16_9" -> "16:9"
+        "4_3" -> "4:3"
+        "wide" -> "Wide"
+        else -> "Plein écran"
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
@@ -191,28 +198,6 @@ player_layout = r'''    val resizeMode = when (imageMode) {
             }
             Text(item.name, color = TextMain, modifier = Modifier.weight(1f), maxLines = 1, fontWeight = FontWeight.SemiBold)
 
-            Box {
-                TextButton(onClick = { imageMenu = true }) { Text("Image", color = Green) }
-                DropdownMenu(expanded = imageMenu, onDismissRequest = { imageMenu = false }) {
-                    listOf(
-                        "zoom" to "Plein écran",
-                        "fit" to "Original",
-                        "16_9" to "16:9",
-                        "4_3" to "4:3",
-                        "wide" to "Wide"
-                    ).forEach { (value, label) ->
-                        DropdownMenuItem(
-                            text = { Text((if (imageMode == value) "✓ " else "") + label) },
-                            onClick = {
-                                imageMode = value
-                                prefs.edit().putString("image_mode_v2", value).apply()
-                                imageMenu = false
-                            }
-                        )
-                    }
-                }
-            }
-
             IconButton(onClick = { landscape = !landscape }) {
                 Icon(
                     Icons.Filled.Rotate90DegreesCcw,
@@ -270,35 +255,49 @@ player_layout = r'''    val resizeMode = when (imageMode) {
             }
         }
 
-        Row(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(Color(0xB907110B))
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 12.dp, bottom = 14.dp)
         ) {
-            Text(
-                when (imageMode) {
-                    "fit" -> "Original"
-                    "16_9" -> "16:9"
-                    "4_3" -> "4:3"
-                    "wide" -> "Wide"
-                    else -> "Plein écran"
-                },
-                color = TextMuted,
-                fontSize = 12.sp,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = {
+            Button(
+                onClick = { imageMenu = true },
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xE61B2B22), contentColor = Green)
+            ) {
+                Text("FORMAT · $currentFormatLabel", fontWeight = FontWeight.ExtraBold)
+            }
+            DropdownMenu(expanded = imageMenu, onDismissRequest = { imageMenu = false }) {
+                listOf(
+                    "zoom" to "Plein écran",
+                    "fit" to "Original",
+                    "16_9" to "16:9",
+                    "4_3" to "4:3",
+                    "wide" to "Wide"
+                ).forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { Text((if (imageMode == value) "✓ " else "") + label) },
+                        onClick = {
+                            imageMode = value
+                            prefs.edit().putString("image_mode_v2", value).apply()
+                            imageMenu = false
+                        }
+                    )
+                }
+            }
+        }
+
+        TextButton(
+            onClick = {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 try {
                     context.startActivity(intent.setPackage("org.videolan.vlc"))
                 } catch (_: ActivityNotFoundException) {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
-            }) { Text("VLC", color = Green) }
-        }
+            },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 10.dp)
+        ) { Text("VLC", color = Green) }
     }
 }
 '''
@@ -312,7 +311,8 @@ required = [
     'image_mode_v2',
     'visibleCategories',
     'Stations radio',
-    'Plein écran (conseillé)'
+    'Plein écran (conseillé)',
+    'FORMAT · $currentFormatLabel'
 ]
 missing = [s for s in required if s not in text]
 if missing:
