@@ -34,6 +34,9 @@ jobs:
       - name: Apply V6 immersive player patch
         run: python3 scripts/v6_immersive_player_patch.py
 
+      - name: Apply V7 French CC patch
+        run: python3 scripts/v7_french_cc_patch.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -87,6 +90,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: OndeTV-v6-immersive-player-apk
+          name: OndeTV-v7-french-cc-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
