@@ -3,6 +3,7 @@ from pathlib import Path
 path = Path('app/src/main/java/com/ondetv/app/ui/EnhancedOndeTvUi.kt')
 text = path.read_text()
 
+text = text.replace('import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.aspectRatio\n')
 text = text.replace('import androidx.compose.material.icons.filled.Rotate90DegreesCcw\n','import androidx.compose.material.icons.filled.Rotate90DegreesCcw\nimport androidx.compose.material.icons.filled.Radio\n')
 text = text.replace('import androidx.media3.ui.CaptionStyleCompat\n','import androidx.media3.ui.AspectRatioFrameLayout\nimport androidx.media3.ui.CaptionStyleCompat\n')
 
@@ -74,11 +75,11 @@ text = text.replace(rotate_marker,'''            Box {
             }
 ''' + rotate_marker,1)
 
-text = text.replace('                    keepScreenOn = true\n                    subtitleView?.setStyle(','                    keepScreenOn = true\n                    resizeMode = resizeMode\n                    subtitleView?.setStyle(',1)
+text = text.replace('                    keepScreenOn = true\n                    subtitleView?.setStyle(','                    keepScreenOn = true\n                    this.resizeMode = resizeMode\n                    subtitleView?.setStyle(',1)
 text = text.replace('                it.player = player\n                it.subtitleView?.setStyle(','                it.player = player\n                it.resizeMode = resizeMode\n                it.subtitleView?.setStyle(',1)
 text = text.replace('            modifier = Modifier.weight(1f).fillMaxWidth()\n','            modifier = if (forcedRatio != null) Modifier.fillMaxWidth().aspectRatio(forcedRatio) else Modifier.weight(1f).fillMaxWidth()\n',1)
 
-required = ['Icons.Filled.Radio','AspectRatioFrameLayout.RESIZE_MODE_FILL','image_mode','visibleCategories','Stations radio']
+required = ['Icons.Filled.Radio','AspectRatioFrameLayout.RESIZE_MODE_FILL','image_mode','visibleCategories','Stations radio','aspectRatio']
 missing = [s for s in required if s not in text]
 if missing:
     raise SystemExit(f'Missing patches: {missing}')
