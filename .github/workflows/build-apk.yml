@@ -28,11 +28,37 @@ jobs:
       - name: Apply V4 playback and radio patch
         run: python3 scripts/v4_patch.py
 
+      - name: Apply V5 premium interface patch
+        run: python3 scripts/v5_ui_patch.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
+
+      - name: Restore stable OndeTV debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: ondetv-debug-signing-v1
+
+      - name: Ensure stable debug signing key exists
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=OndeTV,C=MA"
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
       - name: Install Android SDK packages
         shell: bash
@@ -58,6 +84,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: OndeTV-v4-rotation-image-radio-apk
+          name: OndeTV-v5-premium-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
