@@ -72,6 +72,9 @@ interface IptvDao {
     @Query("SELECT * FROM categories WHERE serviceId = :serviceId AND kind = :kind ORDER BY sortOrder, name")
     fun categories(serviceId: Long, kind: String): Flow<List<CategoryEntity>>
 
+    @Query("SELECT name FROM categories WHERE serviceId = :serviceId AND kind = :kind AND categoryId = :categoryId LIMIT 1")
+    suspend fun categoryName(serviceId: Long, kind: String, categoryId: String): String?
+
     @Query("SELECT * FROM media_items WHERE serviceId = :serviceId AND kind = :kind AND categoryId = :categoryId ORDER BY name")
     fun mediaByCategory(serviceId: Long, kind: String, categoryId: String): Flow<List<MediaEntity>>
 
