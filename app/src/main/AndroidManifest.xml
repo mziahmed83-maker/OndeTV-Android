@@ -8,7 +8,7 @@
         android:name=".OndeTvApp"
         android:allowBackup="true"
         android:usesCleartextTraffic="true"
-        android:label="Onde TV"
+        android:label="NOVA IPTV"
         android:icon="@drawable/ondetv_icon"
         android:roundIcon="@drawable/ondetv_icon"
         android:theme="@style/Theme.OndeTV">
