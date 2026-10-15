@@ -32,14 +32,14 @@ private fun OndeDashboard(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Personalised OndeTV home, inspired by modern IPTV launchers but not copied.
+        // Personalised NOVA IPTV home, inspired by modern IPTV launchers but not copied.
         Card(
             colors = CardDefaults.cardColors(containerColor = Color(0xFF0A1A2E)),
             shape = RoundedCornerShape(28.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("ONDE TV", color = Green, fontWeight = FontWeight.Black, fontSize = 21.sp)
+                Text("NOVA IPTV", color = Green, fontWeight = FontWeight.Black, fontSize = 21.sp)
                 Text("Votre espace IPTV", color = TextMain, fontWeight = FontWeight.ExtraBold, fontSize = 25.sp)
                 Text(serviceName.ifBlank { "Service connecté" }, color = TextMuted, fontSize = 13.sp)
             }
@@ -156,7 +156,7 @@ private fun OndeDashboard(
                     Icon(Icons.Filled.Movie, contentDescription = null, tint = Green)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("LECTEUR ONDE TV", color = Green, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    Text("LECTEUR NOVA IPTV", color = Green, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
                     Text("Touchez l'image pendant la lecture pour afficher Audio, CC et Format.", color = TextMain, fontSize = 14.sp)
                     Text("Plein écran • 16:9 • 4:3 • Wide • Original", color = TextMuted, fontSize = 12.sp)
                 }
