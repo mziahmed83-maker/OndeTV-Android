@@ -1,4 +1,4 @@
-name: Build OndeTV APK
+name: Build NOVA IPTV 2.0 APK
 
 on:
   push:
@@ -46,13 +46,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Restore stable OndeTV debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: ondetv-debug-signing-v1
-
-      - name: Ensure stable debug signing key exists
+      - name: Create ephemeral debug signing key
         shell: bash
         run: |
           mkdir -p "$HOME/.android"
@@ -93,6 +87,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: OndeTV-v8-personalized-ui-apk
+          name: NOVA-IPTV-2.0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
