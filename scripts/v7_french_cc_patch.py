@@ -13,10 +13,7 @@ text = text.replace(
 )
 
 insert_marker = '''    LaunchedEffect(controlsVisible, audioMenu, subtitleMenu, imageMenu) {
-        if (controlsVisible && !audioMenu && !subtitleMenu && !imageMenu) {
-            delay(5000)
-            controlsVisible = false
-        }
+        // Keep the NOVA navigation and format controls visible for VOD playback.
     }
 '''
 if insert_marker not in text:
