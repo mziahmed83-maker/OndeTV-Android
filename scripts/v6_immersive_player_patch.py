@@ -262,6 +262,22 @@ player_tail = r'''    val resizeMode = when (imageMode) {
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                TextButton(onClick = {
+                    player.seekTo((player.currentPosition - 15_000L).coerceAtLeast(0L))
+                }) { Text("↶ 15 s", color = Green, fontWeight = FontWeight.Bold) }
+
+                TextButton(onClick = {
+                    if (player.isPlaying) player.pause() else player.play()
+                }) {
+                    Text(if (player.isPlaying) "Pause" else "Lecture", color = Green, fontWeight = FontWeight.Bold)
+                }
+
+                TextButton(onClick = {
+                    val duration = player.duration
+                    val target = player.currentPosition + 15_000L
+                    player.seekTo(if (duration > 0L) target.coerceAtMost(duration) else target)
+                }) { Text("15 s ↷", color = Green, fontWeight = FontWeight.Bold) }
+
                 Box {
                     Button(
                         onClick = { imageMenu = true },
@@ -316,8 +332,6 @@ text = text[:start] + player_tail
 required = [
     'controller.hide(WindowInsetsCompat.Type.systemBars())',
     'useController = true',
-    'setSeekBackIncrementMs(15_000)',
-    'setSeekForwardIncrementMs(15_000)',
     'showRewindButton = true',
     'showFastForwardButton = true',
     'controlsVisible',
