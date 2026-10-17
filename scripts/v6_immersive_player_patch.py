@@ -79,10 +79,7 @@ new_disposable = '''    DisposableEffect(activity) {
     }
 
     LaunchedEffect(controlsVisible, audioMenu, subtitleMenu, imageMenu) {
-        if (controlsVisible && !audioMenu && !subtitleMenu && !imageMenu) {
-            delay(5000)
-            controlsVisible = false
-        }
+        // Keep the NOVA navigation and format controls visible for VOD playback.
     }
 '''
 
@@ -120,8 +117,11 @@ player_tail = r'''    val resizeMode = when (imageMode) {
             factory = {
                 PlayerView(it).apply {
                     this.player = player
-                    useController = false
-                    controllerAutoShow = false
+                    useController = true
+                    controllerAutoShow = true
+                    controllerShowTimeoutMs = 5_000
+                    showRewindButton = true
+                    showFastForwardButton = true
                     keepScreenOn = true
                     this.resizeMode = resizeMode
                     findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.let { frame ->
@@ -142,7 +142,11 @@ player_tail = r'''    val resizeMode = when (imageMode) {
             },
             update = {
                 it.player = player
-                it.useController = false
+                it.useController = true
+                it.controllerAutoShow = true
+                it.controllerShowTimeoutMs = 5_000
+                it.showRewindButton = true
+                it.showFastForwardButton = true
                 it.resizeMode = resizeMode
                 it.findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.let { frame ->
                     if (forcedRatio > 0f) frame.setAspectRatio(forcedRatio)
@@ -162,14 +166,7 @@ player_tail = r'''    val resizeMode = when (imageMode) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // The whole video is the touch target. A simple tap shows or hides only OndeTV controls.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { controlsVisible = !controlsVisible })
-                }
-        )
+        // Media3 handles the touch target: tap the video to reveal playback controls.
 
         if (controlsVisible) {
             Row(
@@ -318,7 +315,11 @@ text = text[:start] + player_tail
 
 required = [
     'controller.hide(WindowInsetsCompat.Type.systemBars())',
-    'useController = false',
+    'useController = true',
+    'setSeekBackIncrementMs(15_000)',
+    'setSeekForwardIncrementMs(15_000)',
+    'showRewindButton = true',
+    'showFastForwardButton = true',
     'controlsVisible',
     'detectTapGestures',
     'FORMAT · $currentFormatLabel',
