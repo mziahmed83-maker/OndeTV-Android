@@ -120,8 +120,8 @@ player_tail = r'''    val resizeMode = when (imageMode) {
                     useController = true
                     controllerAutoShow = true
                     controllerShowTimeoutMs = 5_000
-                    showRewindButton = true
-                    showFastForwardButton = true
+                    setShowRewindButton(true)
+                    setShowFastForwardButton(true)
                     keepScreenOn = true
                     this.resizeMode = resizeMode
                     findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.let { frame ->
@@ -145,8 +145,8 @@ player_tail = r'''    val resizeMode = when (imageMode) {
                 it.useController = true
                 it.controllerAutoShow = true
                 it.controllerShowTimeoutMs = 5_000
-                it.showRewindButton = true
-                it.showFastForwardButton = true
+                it.setShowRewindButton(true)
+                it.setShowFastForwardButton(true)
                 it.resizeMode = resizeMode
                 it.findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.let { frame ->
                     if (forcedRatio > 0f) frame.setAspectRatio(forcedRatio)
@@ -332,8 +332,8 @@ text = text[:start] + player_tail
 required = [
     'controller.hide(WindowInsetsCompat.Type.systemBars())',
     'useController = true',
-    'showRewindButton = true',
-    'showFastForwardButton = true',
+    'setShowRewindButton(true)',
+    'setShowFastForwardButton(true)',
     'controlsVisible',
     'detectTapGestures',
     'FORMAT · $currentFormatLabel',
